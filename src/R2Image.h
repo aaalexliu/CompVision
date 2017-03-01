@@ -85,7 +85,6 @@ class R2Image {
   void Blur(double sigma);
   void Harris(double sigma);
   void Features(int num);
-  static bool sortbyPixel(pixelLoc a, pixelLoc b);
   void Sharpen(void);
   void applyKernel(R2Image * img, double kernel[], int kernel_width, int kernel_height); 
   void highPass(void);

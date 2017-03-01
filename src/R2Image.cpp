@@ -511,28 +511,6 @@ Features(int num){
 
 }
 
-bool R2Image::
-sortbyPixel(pixelLoc a, pixelLoc b)
-{
-    double luma = a.pixel.Red();
-    double lumb = b.pixel.Red();
-
-    return luma > lumb;
-}
-
-
-//     for(i=0;i<size;i++){
-//         index[i] = i;
-//     }
-//     array = data;
-//     qsort(index, size, sizeof(*index), cmp);
-//     printf("\n\ndata\tindex\n");
-//     for(i=0;i<size;i++){
-//         printf("%d\t%d\n", data[index[i]], index[i]);
-//     }
-//     return 0;
-// }
-
 
 void R2Image::
 Sharpen()
