@@ -56,11 +56,11 @@ class R2Image {
   const R2Pixel *operator[](int row) const;
   void SetPixel(int x, int y,  const R2Pixel& pixel);
 
-  struct pixelLoc{
+  struct PixelCoordinate{
     R2Pixel pixel;
     int x;
     int y;
-    bool operator<(pixelLoc other) const
+    bool operator<(PixelCoordinate other) const
       {
           return pixel.Red() > other.pixel.Red();
       }
@@ -73,7 +73,6 @@ class R2Image {
   // Per-pixel operations
   void Brighten(double factor);
   void ChangeSaturation(double factor);
-  void GrayScale();
 
   // show how SVD works
   void svdTest();
@@ -84,10 +83,13 @@ class R2Image {
   void LoG();
   void Blur(double sigma);
   void Harris(double sigma);
-  void Features(int num);
+  void Features(int num, double sigma);
   void Sharpen(void);
   void applyKernel(R2Image * img, double kernel[], int kernel_width, int kernel_height); 
   void highPass(void);
+  void Clamp();
+  void Normalize();
+  void GrayScale();
 
   // further operations
   void blendOtherImageTranslated(R2Image * otherImage);
@@ -107,6 +109,7 @@ class R2Image {
   // Utility functions
   void Resize(int width, int height);
   R2Pixel Sample(double u, double v,  int sampling_method);
+
 
  private:
   R2Pixel *pixels;

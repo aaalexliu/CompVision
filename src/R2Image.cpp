@@ -370,6 +370,8 @@ applyKernel(R2Image * img, double kernel[], int kernel_width, int kernel_height)
 }
 
 
+
+
 // Linear filtering ////////////////////////////////////////////////
 void R2Image::
 Blur(double sigma)
@@ -472,43 +474,140 @@ Harris(double sigma)
                     (sobelX2.Pixel(i,j).Red() + sobelY2.Pixel(i,j).Red()));
       SetPixel(i,j, R2Pixel(temp + 0.5, temp + 0.5, temp + 0.5, 1.0));  
       Pixel(i,j).Clamp();        
-      // SetPixel(i,j, sobelX2.Pixel(i,j) * sobelY2.Pixel(i,j) -
-      //               sobelX_Y.Pixel(i,j) * sobelX_Y.Pixel(i,j) -
-      //                0.04 * ((sobelX2.Pixel(i,j) + sobelY2.Pixel(i,j)) *
-      //                (sobelX2.Pixel(i,j) + sobelY2.Pixel(i,j))));
-      // SetPixel(i,j, R2Pixel(Pixel(i,j).Red() + 0.5, Pixel(i,j).Green() + 0.5, Pixel(i,j).Blue() + 0.5, 1.0));
-
-      // Pixel(i,j).Clamp();
     }
   }
-
-  //GrayScale();
-  // for(int i = 0; i < width; i++){
-  //   for(int j = 0; j < height; j++){
-  //         SetPixel(i,j, R2Pixel(Pixel(i,j).Red() + 0.5, Pixel(i,j).Red() + 0.5, Pixel(i,j).Red() + 0.5, 1.0));
-  //         Pixel(i,j).Clamp();  
-  //   }
-  // }
 
 }
 
 void R2Image::
-Features(int num){
-  pixelLoc * pixelMap = new pixelLoc[npixels];
+Features(int num, double sigma){
+
+  R2Image sobelX(width, height);
+  double kernelX[9] = {-1, 0, 1, -2, 0, 2, -1, 0, 1};
+  applyKernel(&sobelX, kernelX, 3, 3);
+  
+
+  R2Image sobelY(width, height);
+  double kernelY[9] = {1, 2, 1, 0, 0, 0, -1, -2, -1};
+  applyKernel(&sobelY, kernelY, 3, 3);
+
+  R2Image sobelX_Y(width, height);
+  R2Image sobelX2(width, height);
+  R2Image sobelY2(width, height);
+  for(int i = 0; i < width; i++){
+    for(int j = 0; j < height; j++){
+      sobelX_Y.SetPixel(i, j, sobelX.Pixel(i,j) * sobelY.Pixel(i,j));
+      sobelX2.SetPixel(i,j, sobelX.Pixel(i,j) * sobelX.Pixel(i,j));
+      sobelY2.SetPixel(i,j, sobelY.Pixel(i,j) * sobelY.Pixel(i,j));
+    }
+  }
+
+  sobelX2.Blur(sigma);
+  sobelY2.Blur(sigma);
+  sobelX_Y.Blur(sigma);
+
+  sobelX2.GrayScale();
+  sobelY2.GrayScale();
+  sobelX_Y.GrayScale();
+
+  R2Image harris(width, height);
+
+  for(int i = 0; i < width; i++){
+    for(int j = 0; j < height; j++){
+      double temp = sobelX2.Pixel(i,j).Red() * sobelY2.Pixel(i,j).Red() -
+                    sobelX_Y.Pixel(i,j).Red() * sobelX_Y.Pixel(i,j).Red() -
+                    0.04 * ((sobelX2.Pixel(i,j).Red() + sobelY2.Pixel(i,j).Red()) *
+                    (sobelX2.Pixel(i,j).Red() + sobelY2.Pixel(i,j).Red()));
+      harris.SetPixel(i,j, R2Pixel(temp, temp, temp, 1.0));
+    }
+  }
+
+  PixelCoordinate * pixelMap = new PixelCoordinate[npixels];
   for(int i = 0; i < width; i ++){
     for(int j = 0; j < height; j++ ){
-      pixelMap[i*height + j].pixel = Pixel(i,j);
+      pixelMap[i*height + j].pixel = harris.Pixel(i,j);
       pixelMap[i*height + j].x = i;
       pixelMap[i*height + j].y = j;
     }
   }
 
   std::sort(pixelMap, pixelMap + npixels);
+  PixelCoordinate * features = new PixelCoordinate[num];
+  features[0].x = pixelMap[0].x;
+  features[0].y = pixelMap[0].y;
+  features[0].pixel = pixelMap[0].pixel;
 
-  for(int i = 0; i < npixels; i++){
-    fprintf(stderr, "%f\n",pixelMap[i].pixel.Red()); 
+  int count = 1;
+
+  // fprintf(stderr, "%s  %i  %i  %f\n", "HELLO", num, count, sigma);
+  for(int i = 1; i < npixels; i++){
+    bool farEnough = true;
+    // fprintf(stderr, "%s  %i  %f\n", "Pixel", i, pixelMap[i].pixel.Red());
+
+    for(int j = 0; j < count; j++){
+      //fprintf(stderr, "%i\n",j);
+      double distance = sqrt((features[j].x - pixelMap[i].x) * (features[j].x - pixelMap[i].x) +
+                        (features[j].y - pixelMap[i].y) * (features[j].y - pixelMap[i].y));
+      //fprintf(stderr, "%f\n", distance);
+      if(distance < 20 + sigma){
+         farEnough = false;
+         break;
+      }
+    }
+    if(farEnough){
+      features[count].x = pixelMap[i].x;
+      features[count].y = pixelMap[i].y;  
+      features[count].pixel = pixelMap[i].pixel;
+      count++;
+      if(count >= 150){
+        break;
+      }
+    }
+    //fprintf(stderr, "%i   %i\n", count, i);
   }
 
+  double largest = harris.Pixel(features[0].x, features[0].y).Red();
+  // fprintf(stderr, "%f   %f\n", largest, features[0].pixel.Red());
+  // fprintf(stderr, "%i, %i\n", features[0].x, features[0].y);
+
+  for(int i = 0; i < num; i++){
+    //fprintf(stderr, "%i  %f  %i  %i\n", i, Pixel(features[i].x, features[i].y).Red(), features[i].x, features[i].y);
+    int stroke = 2;
+    int size = features[i].pixel.Red() / largest * 20;
+
+    for(int x = features[i].x - size; x <= features[i].x + size; x++){
+      for(int y = -stroke/2; y < stroke/2; y++){
+
+        int topY = features[i].y - size + y;
+        int bottomY = features[i].y + size + y;
+
+        if(x > 0 && x < width){
+          if(topY > 0 && topY < height){
+            SetPixel(x, topY, R2red_pixel);
+          }
+          if(bottomY > 0 && bottomY < height){
+            SetPixel(x, bottomY, R2red_pixel);
+          }
+        }
+      }
+    }
+    for(int y = features[i].y - size; y <= features[i].y + size; y++){
+      for(int x = -stroke/2; x < stroke/2; x++){
+
+        int leftX = features[i].x - size + x;
+        int rightX = features[i].x + size + x;
+
+        if(y > 0 && y < height){
+          if(leftX > 0 && leftX < width){
+            SetPixel(leftX, y, R2red_pixel);
+          }
+          if(rightX > 0 && rightX < width){
+            SetPixel(rightX, y, R2red_pixel);
+          }
+        }
+      }
+    }
+  }
 }
 
 

@@ -197,8 +197,10 @@ main(int argc, char **argv)
     }
   else if (!strcmp(*argv, "-features")) {
       int num = (int)(atof(argv[1]) + 0.5);
-      argv += 2, argc -= 2;
-      image->Features(num);
+      double sigma = atof(argv[2]);
+
+      argv += 3, argc -= 3;
+      image->Features(num, sigma);
     }
     else if (!strcmp(*argv, "-blur")) {
       CheckOption(*argv, argc, 2);
